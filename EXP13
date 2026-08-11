@@ -1,0 +1,113 @@
+```c
+#include <stdio.h>
+
+#define MOD 26
+
+/* Find modular inverse */
+int modInverse(int a) {
+    int i;
+
+    a = a % MOD;
+
+    for (i = 1; i < MOD; i++) {
+        if ((a * i) % MOD == 1)
+            return i;
+    }
+
+    return -1;
+}
+
+int main() {
+    /*
+       Assume the attacker knows:
+
+       Plaintext pairs:
+       HI ->  TC
+       LL ->  HE
+
+       A = 0, B = 1, ..., Z = 25
+
+       Plaintext matrix P:
+       | H L |
+       | I L |
+
+       Ciphertext matrix C:
+       | T H |
+       | C E |
+    */
+
+    int P[2][2] = {
+        {7, 11},
+        {8, 11}
+    };
+
+    int C[2][2] = {
+        {19, 7},
+        {2, 4}
+    };
+
+    int Pinv[2][2];
+    int K[2][2];
+
+    int det, invDet;
+    int i, j;
+
+    /* Calculate determinant of P */
+    det = (P[0][0] * P[1][1] -
+           P[0][1] * P[1][0]) % MOD;
+
+    if (det < 0)
+        det += MOD;
+
+    printf("Determinant = %d\n", det);
+
+    /* Find modular inverse of determinant */
+    invDet = modInverse(det);
+
+    if (invDet == -1) {
+        printf("Matrix P has no inverse modulo 26.\n");
+        return 0;
+    }
+
+    printf("Inverse of determinant = %d\n", invDet);
+
+    /* Calculate P inverse */
+    Pinv[0][0] = (invDet * P[1][1]) % MOD;
+    Pinv[0][1] = (-invDet * P[0][1]) % MOD;
+    Pinv[1][0] = (-invDet * P[1][0]) % MOD;
+    Pinv[1][1] = (invDet * P[0][0]) % MOD;
+
+    /* Make values positive */
+    for (i = 0; i < 2; i++) {
+        for (j = 0; j < 2; j++) {
+            if (Pinv[i][j] < 0)
+                Pinv[i][j] += MOD;
+        }
+    }
+
+    printf("\nInverse of P:\n");
+    for (i = 0; i < 2; i++) {
+        printf("%d %d\n", Pinv[i][0], Pinv[i][1]);
+    }
+
+    /* K = C * P^-1 mod 26 */
+    for (i = 0; i < 2; i++) {
+        for (j = 0; j < 2; j++) {
+            K[i][j] = 0;
+
+            for (int k = 0; k < 2; k++) {
+                K[i][j] += C[i][k] * Pinv[k][j];
+            }
+
+            K[i][j] %= MOD;
+        }
+    }
+
+    printf("\nRecovered Hill Cipher Key:\n");
+    for (i = 0; i < 2; i++) {
+        printf("%d %d\n", K[i][0], K[i][1]);
+    }
+
+    return 0;
+}
+```
