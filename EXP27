@@ -1,0 +1,76 @@
+#include <stdio.h>
+
+/* Fast modular exponentiation */
+long long modPow(long long base, long long exp, long long mod)
+{
+    long long result = 1;
+
+    base = base % mod;
+
+    while (exp > 0)
+    {
+        if (exp % 2 == 1)
+            result = (result * base) % mod;
+
+        base = (base * base) % mod;
+        exp = exp / 2;
+    }
+
+    return result;
+}
+
+int main()
+{
+    long long e, n;
+    long long cipher[100];
+    int count;
+    int i, j;
+
+    printf("RSA SMALL PLAINTEXT SPACE ATTACK\n");
+    printf("---------------------------------\n");
+
+    printf("Enter public exponent e: ");
+    scanf("%lld", &e);
+
+    printf("Enter modulus n: ");
+    scanf("%lld", &n);
+
+    printf("Enter number of ciphertext blocks: ");
+    scanf("%d", &count);
+
+    printf("Enter ciphertext blocks:\n");
+
+    for (i = 0; i < count; i++)
+        scanf("%lld", &cipher[i]);
+
+    printf("\nRecovered message:\n");
+
+    /*
+     * Try all 26 possible plaintext values.
+     */
+    for (i = 0; i < count; i++)
+    {
+        int found = 0;
+
+        for (j = 0; j < 26; j++)
+        {
+            long long encrypted;
+
+            encrypted = modPow(j, e, n);
+
+            if (encrypted == cipher[i])
+            {
+                printf("%c", 'A' + j);
+                found = 1;
+                break;
+            }
+        }
+
+        if (!found)
+            printf("?");
+    }
+
+    printf("\n");
+
+    return 0;
+}
