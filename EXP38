@@ -1,0 +1,331 @@
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+#define MOD 26
+
+/* Find GCD */
+int gcd(int a, int b)
+{
+    while (b != 0)
+    {
+        int temp = b;
+        b = a % b;
+        a = temp;
+    }
+
+    return a;
+}
+
+/* Find modular inverse */
+int modInverse(int a)
+{
+    int i;
+
+    a = (a % MOD + MOD) % MOD;
+
+    for (i = 1; i < MOD; i++)
+    {
+        if ((a * i) % MOD == 1)
+            return i;
+    }
+
+    return -1;
+}
+
+/* Normalize modulo 26 */
+int mod26(int x)
+{
+    x %= MOD;
+
+    if (x < 0)
+        x += MOD;
+
+    return x;
+}
+
+/*
+ * Convert two letters into a 2-element
+ * plaintext/ciphertext vector.
+ */
+void textToVector(char text[], int vector[])
+{
+    vector[0] = toupper(text[0]) - 'A';
+    vector[1] = toupper(text[1]) - 'A';
+}
+
+/*
+ * Convert a 2x2 matrix from a string.
+ */
+void textToMatrix(char text[], int matrix[2][2])
+{
+    matrix[0][0] = toupper(text[0]) - 'A';
+    matrix[1][0] = toupper(text[1]) - 'A';
+
+    matrix[0][1] = toupper(text[2]) - 'A';
+    matrix[1][1] = toupper(text[3]) - 'A';
+}
+
+/*
+ * Calculate inverse of a 2x2 matrix modulo 26.
+ *
+ *       | a b |
+ * P =   | c d |
+ *
+ * P^-1 = determinant^-1 *
+ *
+ *       | d  -b |
+ *       | -c  a |
+ */
+int inverseMatrix(int P[2][2],
+                  int inverse[2][2])
+{
+    int determinant;
+    int determinantInverse;
+
+    determinant =
+        mod26(P[0][0] * P[1][1]
+              - P[0][1] * P[1][0]);
+
+    determinantInverse =
+        modInverse(determinant);
+
+    if (determinantInverse == -1)
+        return 0;
+
+    inverse[0][0] =
+        mod26(determinantInverse * P[1][1]);
+
+    inverse[0][1] =
+        mod26(-determinantInverse * P[0][1]);
+
+    inverse[1][0] =
+        mod26(-determinantInverse * P[1][0]);
+
+    inverse[1][1] =
+        mod26(determinantInverse * P[0][0]);
+
+    return 1;
+}
+
+/*
+ * Matrix multiplication:
+ *
+ * C = A * B mod 26
+ */
+void multiplyMatrix(int A[2][2],
+                    int B[2][2],
+                    int C[2][2])
+{
+    int i, j, k;
+
+    for (i = 0; i < 2; i++)
+    {
+        for (j = 0; j < 2; j++)
+        {
+            C[i][j] = 0;
+
+            for (k = 0; k < 2; k++)
+            {
+                C[i][j] +=
+                    A[i][k] * B[k][j];
+            }
+
+            C[i][j] =
+                mod26(C[i][j]);
+        }
+    }
+}
+
+/*
+ * Encrypt a two-letter block using key.
+ */
+void encryptBlock(char plaintext[],
+                  char ciphertext[],
+                  int K[2][2])
+{
+    int P[2];
+    int C[2];
+
+    textToVector(plaintext, P);
+
+    C[0] =
+        mod26(K[0][0] * P[0] +
+              K[0][1] * P[1]);
+
+    C[1] =
+        mod26(K[1][0] * P[0] +
+              K[1][1] * P[1]);
+
+    ciphertext[0] = 'A' + C[0];
+    ciphertext[1] = 'A' + C[1];
+    ciphertext[2] = '\0';
+}
+
+/*
+ * Decrypt a two-letter block.
+ */
+void decryptBlock(char ciphertext[],
+                  char plaintext[],
+                  int K[2][2])
+{
+    int inverse[2][2];
+    int C[2];
+    int P[2];
+
+    if (!inverseMatrix(K, inverse))
+    {
+        printf("Key matrix has no inverse.\n");
+        return;
+    }
+
+    textToVector(ciphertext, C);
+
+    P[0] =
+        mod26(inverse[0][0] * C[0] +
+              inverse[0][1] * C[1]);
+
+    P[1] =
+        mod26(inverse[1][0] * C[0] +
+              inverse[1][1] * C[1]);
+
+    plaintext[0] = 'A' + P[0];
+    plaintext[1] = 'A' + P[1];
+    plaintext[2] = '\0';
+}
+
+/*
+ * Recover Hill cipher key from known
+ * plaintext-ciphertext pairs.
+ */
+int recoverKey(char p1[],
+               char p2[],
+               char c1[],
+               char c2[],
+               int K[2][2])
+{
+    int P[2][2];
+    int C[2][2];
+    int PInverse[2][2];
+
+    /*
+     * Construct plaintext matrix.
+     *
+     * Columns are plaintext vectors.
+     */
+    P[0][0] = toupper(p1[0]) - 'A';
+    P[1][0] = toupper(p1[1]) - 'A';
+
+    P[0][1] = toupper(p2[0]) - 'A';
+    P[1][1] = toupper(p2[1]) - 'A';
+
+    /*
+     * Construct ciphertext matrix.
+     */
+    C[0][0] = toupper(c1[0]) - 'A';
+    C[1][0] = toupper(c1[1]) - 'A';
+
+    C[0][1] = toupper(c2[0]) - 'A';
+    C[1][1] = toupper(c2[1]) - 'A';
+
+    /*
+     * P must be invertible modulo 26.
+     */
+    if (!inverseMatrix(P, PInverse))
+        return 0;
+
+    /*
+     * K = C * P^-1 mod 26
+     */
+    multiplyMatrix(C,
+                   PInverse,
+                   K);
+
+    return 1;
+}
+
+int main()
+{
+    int key[2][2];
+
+    char p1[3];
+    char p2[3];
+
+    char c1[3];
+    char c2[3];
+
+    char testPlain[3];
+    char testCipher[3];
+    char decrypted[3];
+
+    printf("HILL CIPHER KNOWN-PLAINTEXT ATTACK\n");
+    printf("==================================\n");
+
+    /*
+     * Example:
+     *
+     * Secret key:
+     *
+     * | 3 3 |
+     * | 2 5 |
+     *
+     * Known pairs:
+     *
+     * HI -> TC
+     * AT -> BF
+     */
+
+    printf("\nEnter first plaintext block (2 letters): ");
+    scanf("%2s", p1);
+
+    printf("Enter corresponding ciphertext: ");
+    scanf("%2s", c1);
+
+    printf("\nEnter second plaintext block (2 letters): ");
+    scanf("%2s", p2);
+
+    printf("Enter corresponding ciphertext: ");
+    scanf("%2s", c2);
+
+    /*
+     * Recover key.
+     */
+    if (!recoverKey(p1, p2, c1, c2, key))
+    {
+        printf("\nAttack failed!\n");
+        printf("The plaintext matrix is not invertible modulo 26.\n");
+        return 1;
+    }
+
+    printf("\nRecovered Key Matrix:\n");
+
+    printf("| %2d %2d |\n",
+           key[0][0],
+           key[0][1]);
+
+    printf("| %2d %2d |\n",
+           key[1][0],
+           key[1][1]);
+
+    /*
+     * Test recovered key.
+     */
+    printf("\nEnter plaintext to test: ");
+    scanf("%2s", testPlain);
+
+    encryptBlock(testPlain,
+                 testCipher,
+                 key);
+
+    printf("Encrypted: %s\n",
+           testCipher);
+
+    decryptBlock(testCipher,
+                 decrypted,
+                 key);
+
+    printf("Decrypted: %s\n",
+           decrypted);
+
+    return 0;
+}
