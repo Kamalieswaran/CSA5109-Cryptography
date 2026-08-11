@@ -1,0 +1,50 @@
+#include <stdio.h>
+#include <ctype.h>
+
+int main() {
+    char ciphertext[200];
+    char plaintext[200];
+    int i, c, p;
+
+    // Key obtained from frequency analysis
+    int a = 3;
+    int b = 15;
+
+    // Multiplicative inverse of a = 3 modulo 26
+    int inverse_a = 9;
+
+    printf("Enter ciphertext: ");
+    fgets(ciphertext, sizeof(ciphertext), stdin);
+
+    // Decryption
+    for (i = 0; ciphertext[i] != '\0'; i++) {
+
+        if (isalpha(ciphertext[i])) {
+
+            if (isupper(ciphertext[i]))
+                c = ciphertext[i] - 'A';
+            else
+                c = ciphertext[i] - 'a';
+
+            // P = a^-1(C - b) mod 26
+            p = (inverse_a * (c - b)) % 26;
+
+            if (p < 0)
+                p += 26;
+
+            if (isupper(ciphertext[i]))
+                plaintext[i] = p + 'A';
+            else
+                plaintext[i] = p + 'a';
+        }
+        else {
+            plaintext[i] = ciphertext[i];
+        }
+    }
+
+    plaintext[i] = '\0';
+
+    printf("Decrypted plaintext: %s", plaintext);
+
+    return 0;
+}
