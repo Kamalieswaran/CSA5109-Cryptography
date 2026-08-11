@@ -1,0 +1,399 @@
+#include <stdio.h>
+#include <string.h>
+
+#define BLOCK_SIZE 8
+
+/*
+ * Simple XOR block cipher for demonstration.
+ * Real applications must use AES or another
+ * secure block cipher.
+ */
+void encryptBlock(unsigned char *in,
+                  unsigned char *out,
+                  unsigned char *key)
+{
+    int i;
+
+    for (i = 0; i < BLOCK_SIZE; i++)
+        out[i] = in[i] ^ key[i];
+}
+
+void decryptBlock(unsigned char *in,
+                  unsigned char *out,
+                  unsigned char *key)
+{
+    int i;
+
+    /* XOR encryption is its own inverse */
+    for (i = 0; i < BLOCK_SIZE; i++)
+        out[i] = in[i] ^ key[i];
+}
+
+/*
+ * Padding:
+ *
+ * Append 1 bit followed by zero bits.
+ *
+ * If plaintext length is already an exact
+ * multiple of BLOCK_SIZE, a COMPLETE BLOCK
+ * of padding is added.
+ */
+int addPadding(unsigned char *data, int length)
+{
+    int padding;
+    int newLength;
+
+    padding = BLOCK_SIZE - (length % BLOCK_SIZE);
+
+    /*
+     * If already complete, add one full block.
+     */
+    if (padding == 0)
+        padding = BLOCK_SIZE;
+
+    newLength = length + padding;
+
+    /*
+     * First padding byte contains the 1 bit.
+     * Remaining bytes are zero.
+     */
+    data[length] = 0x80;
+
+    for (int i = length + 1; i < newLength; i++)
+        data[i] = 0x00;
+
+    return newLength;
+}
+
+/* Remove 1 followed by zero padding */
+int removePadding(unsigned char *data, int length)
+{
+    int i;
+
+    for (i = length - 1; i >= 0; i--)
+    {
+        if (data[i] == 0x00)
+            continue;
+
+        if (data[i] == 0x80)
+            return i;
+
+        return length;
+    }
+
+    return length;
+}
+
+/* ECB Encryption */
+void ECB_Encrypt(unsigned char *plain,
+                 unsigned char *cipher,
+                 int length,
+                 unsigned char *key)
+{
+    int i;
+
+    for (i = 0; i < length; i += BLOCK_SIZE)
+    {
+        encryptBlock(&plain[i],
+                     &cipher[i],
+                     key);
+    }
+}
+
+/* ECB Decryption */
+void ECB_Decrypt(unsigned char *cipher,
+                 unsigned char *plain,
+                 int length,
+                 unsigned char *key)
+{
+    int i;
+
+    for (i = 0; i < length; i += BLOCK_SIZE)
+    {
+        decryptBlock(&cipher[i],
+                     &plain[i],
+                     key);
+    }
+}
+
+/* CBC Encryption */
+void CBC_Encrypt(unsigned char *plain,
+                 unsigned char *cipher,
+                 int length,
+                 unsigned char *key,
+                 unsigned char *IV)
+{
+    unsigned char temp[BLOCK_SIZE];
+    unsigned char previous[BLOCK_SIZE];
+
+    int i, j;
+
+    memcpy(previous, IV, BLOCK_SIZE);
+
+    for (i = 0; i < length; i += BLOCK_SIZE)
+    {
+        /* Plaintext XOR previous ciphertext */
+        for (j = 0; j < BLOCK_SIZE; j++)
+            temp[j] = plain[i + j] ^ previous[j];
+
+        encryptBlock(temp,
+                     &cipher[i],
+                     key);
+
+        memcpy(previous,
+               &cipher[i],
+               BLOCK_SIZE);
+    }
+}
+
+/* CBC Decryption */
+void CBC_Decrypt(unsigned char *cipher,
+                 unsigned char *plain,
+                 int length,
+                 unsigned char *key,
+                 unsigned char *IV)
+{
+    unsigned char temp[BLOCK_SIZE];
+    unsigned char previous[BLOCK_SIZE];
+
+    int i, j;
+
+    memcpy(previous, IV, BLOCK_SIZE);
+
+    for (i = 0; i < length; i += BLOCK_SIZE)
+    {
+        decryptBlock(&cipher[i],
+                     temp,
+                     key);
+
+        for (j = 0; j < BLOCK_SIZE; j++)
+            plain[i + j] = temp[j] ^ previous[j];
+
+        memcpy(previous,
+               &cipher[i],
+               BLOCK_SIZE);
+    }
+}
+
+/*
+ * CFB mode with full-block segments.
+ *
+ * CFB encryption:
+ * C_i = P_i XOR E(K, C_(i-1))
+ */
+void CFB_Encrypt(unsigned char *plain,
+                 unsigned char *cipher,
+                 int length,
+                 unsigned char *key,
+                 unsigned char *IV)
+{
+    unsigned char feedback[BLOCK_SIZE];
+    unsigned char stream[BLOCK_SIZE];
+
+    int i, j;
+
+    memcpy(feedback, IV, BLOCK_SIZE);
+
+    for (i = 0; i < length; i += BLOCK_SIZE)
+    {
+        encryptBlock(feedback,
+                     stream,
+                     key);
+
+        for (j = 0; j < BLOCK_SIZE; j++)
+            cipher[i + j] =
+                plain[i + j] ^ stream[j];
+
+        memcpy(feedback,
+               &cipher[i],
+               BLOCK_SIZE);
+    }
+}
+
+/* CFB Decryption */
+void CFB_Decrypt(unsigned char *cipher,
+                 unsigned char *plain,
+                 int length,
+                 unsigned char *key,
+                 unsigned char *IV)
+{
+    unsigned char feedback[BLOCK_SIZE];
+    unsigned char stream[BLOCK_SIZE];
+
+    int i, j;
+
+    memcpy(feedback, IV, BLOCK_SIZE);
+
+    for (i = 0; i < length; i += BLOCK_SIZE)
+    {
+        encryptBlock(feedback,
+                     stream,
+                     key);
+
+        for (j = 0; j < BLOCK_SIZE; j++)
+            plain[i + j] =
+                cipher[i + j] ^ stream[j];
+
+        memcpy(feedback,
+               &cipher[i],
+               BLOCK_SIZE);
+    }
+}
+
+void printData(char *title,
+               unsigned char *data,
+               int length)
+{
+    int i;
+
+    printf("%s", title);
+
+    for (i = 0; i < length; i++)
+        printf("%02X ", data[i]);
+
+    printf("\n");
+}
+
+int main()
+{
+    unsigned char plaintext[64];
+    unsigned char ecbCipher[64];
+    unsigned char ecbPlain[64];
+
+    unsigned char cbcCipher[64];
+    unsigned char cbcPlain[64];
+
+    unsigned char cfbCipher[64];
+    unsigned char cfbPlain[64];
+
+    unsigned char key[BLOCK_SIZE] =
+        { '1','2','3','4','5','6','7','8' };
+
+    unsigned char IV[BLOCK_SIZE] =
+        { 'A','B','C','D','E','F','G','H' };
+
+    int originalLength;
+    int paddedLength;
+    int recoveredLength;
+
+    printf("ECB, CBC AND CFB MODES\n");
+    printf("======================\n");
+
+    /*
+     * Example plaintext.
+     *
+     * Even if the length is already a
+     * multiple of 8, an extra padding block
+     * will be added.
+     */
+    strcpy((char *)plaintext,
+           "ABCDEFGH");
+
+    originalLength = strlen((char *)plaintext);
+
+    printf("\nOriginal plaintext: %s\n",
+           plaintext);
+
+    printf("Original length: %d bytes\n",
+           originalLength);
+
+    /*
+     * Add padding.
+     */
+    paddedLength =
+        addPadding(plaintext,
+                   originalLength);
+
+    printf("Padded length: %d bytes\n",
+           paddedLength);
+
+    printData("Padded data: ",
+              plaintext,
+              paddedLength);
+
+    /* ================= ECB ================= */
+
+    ECB_Encrypt(plaintext,
+                ecbCipher,
+                paddedLength,
+                key);
+
+    ECB_Decrypt(ecbCipher,
+                ecbPlain,
+                paddedLength,
+                key);
+
+    recoveredLength =
+        removePadding(ecbPlain,
+                      paddedLength);
+
+    ecbPlain[recoveredLength] = '\0';
+
+    printf("\nECB Mode\n");
+    printData("Ciphertext: ",
+              ecbCipher,
+              paddedLength);
+
+    printf("Decrypted: %s\n",
+           ecbPlain);
+
+    /* ================= CBC ================= */
+
+    CBC_Encrypt(plaintext,
+                cbcCipher,
+                paddedLength,
+                key,
+                IV);
+
+    CBC_Decrypt(cbcCipher,
+                cbcPlain,
+                paddedLength,
+                key,
+                IV);
+
+    recoveredLength =
+        removePadding(cbcPlain,
+                      paddedLength);
+
+    cbcPlain[recoveredLength] = '\0';
+
+    printf("\nCBC Mode\n");
+
+    printData("Ciphertext: ",
+              cbcCipher,
+              paddedLength);
+
+    printf("Decrypted: %s\n",
+           cbcPlain);
+
+    /* ================= CFB ================= */
+
+    CFB_Encrypt(plaintext,
+                cfbCipher,
+                paddedLength,
+                key,
+                IV);
+
+    CFB_Decrypt(cfbCipher,
+                cfbPlain,
+                paddedLength,
+                key,
+                IV);
+
+    recoveredLength =
+        removePadding(cfbPlain,
+                      paddedLength);
+
+    cfbPlain[recoveredLength] = '\0';
+
+    printf("\nCFB Mode\n");
+
+    printData("Ciphertext: ",
+              cfbCipher,
+              paddedLength);
+
+    printf("Decrypted: %s\n",
+           cfbPlain);
+
+    return 0;
+}
