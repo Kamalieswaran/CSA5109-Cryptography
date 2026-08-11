@@ -1,0 +1,122 @@
+#include <stdio.h>
+#include <string.h>
+
+#define BLOCK_SIZE 8
+
+/* Simple XOR-based encryption for demonstration */
+void encryptBlock(char *in, char *out, char key) {
+    for (int i = 0; i < BLOCK_SIZE; i++)
+        out[i] = in[i] ^ key;
+}
+
+/* Add 1 followed by zeros */
+int addPadding(char *data, int len) {
+    int pad = BLOCK_SIZE - (len % BLOCK_SIZE);
+
+    if (pad == 0)
+        pad = BLOCK_SIZE;   // Add a complete padding block
+
+    data[len] = 0x80;       // 1 bit followed by zeros
+
+    for (int i = 1; i < pad; i++)
+        data[len + i] = 0;
+
+    return len + pad;
+}
+
+/* ECB Mode */
+void ECB(char *plain, int len, char key) {
+    char block[BLOCK_SIZE], cipher[BLOCK_SIZE];
+
+    printf("\nECB Ciphertext:\n");
+
+    for (int i = 0; i < len; i += BLOCK_SIZE) {
+        memcpy(block, plain + i, BLOCK_SIZE);
+        encryptBlock(block, cipher, key);
+
+        for (int j = 0; j < BLOCK_SIZE; j++)
+            printf("%02X ", (unsigned char)cipher[j]);
+
+        printf("\n");
+    }
+}
+
+/* CBC Mode */
+void CBC(char *plain, int len, char key) {
+    char block[BLOCK_SIZE], cipher[BLOCK_SIZE];
+    char previous[BLOCK_SIZE];
+
+    memset(previous, 0, BLOCK_SIZE);  // IV = 0
+
+    printf("\nCBC Ciphertext:\n");
+
+    for (int i = 0; i < len; i += BLOCK_SIZE) {
+        for (int j = 0; j < BLOCK_SIZE; j++)
+            block[j] = plain[i + j] ^ previous[j];
+
+        encryptBlock(block, cipher, key);
+
+        for (int j = 0; j < BLOCK_SIZE; j++) {
+            printf("%02X ", (unsigned char)cipher[j]);
+            previous[j] = cipher[j];
+        }
+
+        printf("\n");
+    }
+}
+
+/* CFB Mode */
+void CFB(char *plain, int len, char key) {
+    char feedback[BLOCK_SIZE];
+    char encrypted[BLOCK_SIZE];
+
+    memset(feedback, 0, BLOCK_SIZE);  // IV = 0
+
+    printf("\nCFB Ciphertext:\n");
+
+    for (int i = 0; i < len; i += BLOCK_SIZE) {
+        encryptBlock(feedback, encrypted, key);
+
+        for (int j = 0; j < BLOCK_SIZE; j++) {
+            char cipher = plain[i + j] ^ encrypted[j];
+
+            printf("%02X ", (unsigned char)cipher);
+
+            feedback[j] = cipher;
+        }
+
+        printf("\n");
+    }
+}
+
+int main() {
+    char plaintext[100];
+    int len;
+
+    char key = 'K';
+
+    printf("Enter plaintext: ");
+    fgets(plaintext, sizeof(plaintext), stdin);
+
+    len = strlen(plaintext);
+
+    if (plaintext[len - 1] == '\n') {
+        plaintext[len - 1] = '\0';
+        len--;
+    }
+
+    /* Add padding */
+    len = addPadding(plaintext, len);
+
+    printf("\nPlaintext after padding: ");
+    for (int i = 0; i < len; i++)
+        printf("%02X ", (unsigned char)plaintext[i]);
+
+    printf("\n");
+
+    ECB(plaintext, len, key);
+    CBC(plaintext, len, key);
+    CFB(plaintext, len, key);
+
+    return 0;
+}
