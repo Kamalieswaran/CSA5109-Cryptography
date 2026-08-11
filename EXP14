@@ -1,0 +1,94 @@
+```c
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+#define MAX 100
+
+int main() {
+    char plaintext[] = "send more money";
+    int key[] = {9, 0, 1, 7, 23, 15, 21, 14, 11, 11, 2, 8, 9};
+
+    char ciphertext[MAX];
+    char decrypted[MAX];
+
+    char desired[] = "cash not needed";
+    int newKey[MAX];
+
+    int i, j = 0;
+    int p, c;
+
+    /* Remove spaces from plaintext */
+    char cleanPlain[MAX];
+
+    for (i = 0; plaintext[i] != '\0'; i++) {
+        if (isalpha(plaintext[i])) {
+            cleanPlain[j++] = tolower(plaintext[i]);
+        }
+    }
+    cleanPlain[j] = '\0';
+
+    /* Part (a): Encryption */
+    for (i = 0; cleanPlain[i] != '\0'; i++) {
+        p = cleanPlain[i] - 'a';
+
+        c = (p + key[i]) % 26;
+
+        ciphertext[i] = c + 'a';
+    }
+
+    ciphertext[i] = '\0';
+
+    printf("PART (a)\n");
+    printf("Plaintext  : %s\n", cleanPlain);
+    printf("Ciphertext : %s\n\n", ciphertext);
+
+    /* Remove spaces from desired plaintext */
+    char cleanDesired[MAX];
+
+    j = 0;
+
+    for (i = 0; desired[i] != '\0'; i++) {
+        if (isalpha(desired[i])) {
+            cleanDesired[j++] = tolower(desired[i]);
+        }
+    }
+
+    cleanDesired[j] = '\0';
+
+    /* Part (b): Find a key for desired plaintext */
+    for (i = 0; ciphertext[i] != '\0'; i++) {
+
+        c = ciphertext[i] - 'a';
+        p = cleanDesired[i] - 'a';
+
+        newKey[i] = (c - p + 26) % 26;
+    }
+
+    printf("PART (b)\n");
+    printf("Ciphertext        : %s\n", ciphertext);
+    printf("Required plaintext: %s\n", cleanDesired);
+
+    printf("New key stream    : ");
+
+    for (i = 0; ciphertext[i] != '\0'; i++) {
+        printf("%d ", newKey[i]);
+    }
+
+    printf("\n");
+
+    /* Verify decryption */
+    for (i = 0; ciphertext[i] != '\0'; i++) {
+
+        c = ciphertext[i] - 'a';
+
+        decrypted[i] = (c - newKey[i] + 26) % 26 + 'a';
+    }
+
+    decrypted[i] = '\0';
+
+    printf("Decrypted text     : %s\n", decrypted);
+
+    return 0;
+}
+```
