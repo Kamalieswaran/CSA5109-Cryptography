@@ -1,0 +1,61 @@
+#include <stdio.h>
+#include <string.h>
+
+#define BLOCKS 4
+
+void printBlocks(const char *name, int data[]) {
+    printf("%s: ", name);
+    for (int i = 0; i < BLOCKS; i++)
+        printf("%d ", data[i]);
+    printf("\n");
+}
+
+int main() {
+    int P[BLOCKS] = {10, 20, 30, 40};
+    int K = 7;
+    int IV = 5;
+
+    int C_ECB[BLOCKS], C_CBC[BLOCKS];
+    int P_ECB[BLOCKS], P_CBC[BLOCKS];
+
+    printf("Original Plaintext Blocks:\n");
+    printBlocks("P", P);
+
+    /* ---------------- ECB Encryption ---------------- */
+    for (int i = 0; i < BLOCKS; i++)
+        C_ECB[i] = P[i] ^ K;
+
+    /* Introduce an error in C1 */
+    C_ECB[1] = C_ECB[1] ^ 1;
+
+    /* ECB Decryption */
+    for (int i = 0; i < BLOCKS; i++)
+        P_ECB[i] = C_ECB[i] ^ K;
+
+    printf("\nECB Mode after error in C1:\n");
+    printBlocks("P'", P_ECB);
+
+    /* ---------------- CBC Encryption ---------------- */
+    int previous = IV;
+
+    for (int i = 0; i < BLOCKS; i++) {
+        C_CBC[i] = (P[i] ^ previous) ^ K;
+        previous = C_CBC[i];
+    }
+
+    /* Introduce an error in C1 */
+    C_CBC[1] = C_CBC[1] ^ 1;
+
+    /* CBC Decryption */
+    previous = IV;
+
+    for (int i = 0; i < BLOCKS; i++) {
+        P_CBC[i] = (C_CBC[i] ^ K) ^ previous;
+        previous = C_CBC[i];
+    }
+
+    printf("\nCBC Mode after error in C1:\n");
+    printBlocks("P'", P_CBC);
+
+    return 0;
+}
