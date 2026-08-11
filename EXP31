@@ -1,0 +1,148 @@
+#include <stdio.h>
+#include <stdint.h>
+
+/*
+ * Left shift a 64-bit value by one bit.
+ */
+uint64_t leftShift64(uint64_t x)
+{
+    return x << 1;
+}
+
+/*
+ * Generate CMAC subkeys for a 64-bit block.
+ *
+ * Rb = 0x1B
+ */
+void generateSubkeys64(uint64_t L,
+                       uint64_t *K1,
+                       uint64_t *K2)
+{
+    uint64_t rb = 0x1B;
+
+    /* Generate K1 */
+    if (L & 0x8000000000000000ULL)
+        *K1 = (L << 1) ^ rb;
+    else
+        *K1 = L << 1;
+
+    /* Generate K2 */
+    if (*K1 & 0x8000000000000000ULL)
+        *K2 = (*K1 << 1) ^ rb;
+    else
+        *K2 = *K1 << 1;
+}
+
+/*
+ * Generate CMAC subkeys for a 128-bit block.
+ *
+ * Rb = 0x87
+ */
+void generateSubkeys128(uint64_t Lhigh,
+                        uint64_t Llow,
+                        uint64_t *K1high,
+                        uint64_t *K1low,
+                        uint64_t *K2high,
+                        uint64_t *K2low)
+{
+    uint64_t rb = 0x87;
+
+    /* Generate K1 */
+    if (Lhigh & 0x8000000000000000ULL)
+    {
+        *K1high = (Lhigh << 1) |
+                 (Llow >> 63);
+
+        *K1low = Llow << 1;
+
+        *K1low ^= rb;
+    }
+    else
+    {
+        *K1high = (Lhigh << 1) |
+                  (Llow >> 63);
+
+        *K1low = Llow << 1;
+    }
+
+    /* Generate K2 */
+    if (*K1high & 0x8000000000000000ULL)
+    {
+        *K2high = (*K1high << 1) |
+                  (*K1low >> 63);
+
+        *K2low = *K1low << 1;
+
+        *K2low ^= rb;
+    }
+    else
+    {
+        *K2high = (*K1high << 1) |
+                  (*K1low >> 63);
+
+        *K2low = *K1low << 1;
+    }
+}
+
+int main()
+{
+    uint64_t L64;
+    uint64_t K1_64, K2_64;
+
+    uint64_t L128_high, L128_low;
+    uint64_t K1_128_high, K1_128_low;
+    uint64_t K2_128_high, K2_128_low;
+
+    printf("CMAC SUBKEY GENERATION\n");
+    printf("======================\n");
+
+    /*
+     * Example 64-bit L = E_K(0^64)
+     */
+    L64 = 0x8000000000000001ULL;
+
+    printf("\n64-bit Block:\n");
+    printf("L  = %016llX\n",
+           (unsigned long long)L64);
+
+    generateSubkeys64(L64, &K1_64, &K2_64);
+
+    printf("Rb = 1B\n");
+    printf("K1 = %016llX\n",
+           (unsigned long long)K1_64);
+    printf("K2 = %016llX\n",
+           (unsigned long long)K2_64);
+
+    /*
+     * Example 128-bit L
+     */
+    L128_high = 0x8000000000000000ULL;
+    L128_low  = 0x0000000000000001ULL;
+
+    printf("\n128-bit Block:\n");
+
+    printf("L  = %016llX%016llX\n",
+           (unsigned long long)L128_high,
+           (unsigned long long)L128_low);
+
+    generateSubkeys128(
+        L128_high,
+        L128_low,
+        &K1_128_high,
+        &K1_128_low,
+        &K2_128_high,
+        &K2_128_low
+    );
+
+    printf("Rb = 87\n");
+
+    printf("K1 = %016llX%016llX\n",
+           (unsigned long long)K1_128_high,
+           (unsigned long long)K1_128_low);
+
+    printf("K2 = %016llX%016llX\n",
+           (unsigned long long)K2_128_high,
+           (unsigned long long)K2_128_low);
+
+    return 0;
+}
