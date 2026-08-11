@@ -1,0 +1,152 @@
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+/* Find GCD of two numbers */
+int gcd(int a, int b)
+{
+    while (b != 0)
+    {
+        int temp = b;
+        b = a % b;
+        a = temp;
+    }
+
+    return a;
+}
+
+/* Find modular inverse of a modulo 26 */
+int modInverse(int a)
+{
+    int i;
+
+    for (i = 1; i < 26; i++)
+    {
+        if ((a * i) % 26 == 1)
+            return i;
+    }
+
+    return -1;
+}
+
+/* Affine encryption */
+void encrypt(char plaintext[],
+             char ciphertext[],
+             int a,
+             int b)
+{
+    int i;
+
+    for (i = 0; plaintext[i] != '\0'; i++)
+    {
+        if (isalpha(plaintext[i]))
+        {
+            int p = toupper(plaintext[i]) - 'A';
+
+            int c = (a * p + b) % 26;
+
+            ciphertext[i] = c + 'A';
+        }
+        else
+        {
+            ciphertext[i] = plaintext[i];
+        }
+    }
+
+    ciphertext[i] = '\0';
+}
+
+/* Affine decryption */
+void decrypt(char ciphertext[],
+             char plaintext[],
+             int a,
+             int b)
+{
+    int i;
+    int aInverse = modInverse(a);
+
+    for (i = 0; ciphertext[i] != '\0'; i++)
+    {
+        if (isalpha(ciphertext[i]))
+        {
+            int c = toupper(ciphertext[i]) - 'A';
+
+            int p =
+                (aInverse * (c - b + 26)) % 26;
+
+            plaintext[i] = p + 'A';
+        }
+        else
+        {
+            plaintext[i] = ciphertext[i];
+        }
+    }
+
+    plaintext[i] = '\0';
+}
+
+int main()
+{
+    char plaintext[100];
+    char ciphertext[100];
+    char decrypted[100];
+
+    int a, b;
+
+    printf("AFFINE CAESAR CIPHER\n");
+    printf("====================\n");
+
+    printf("Enter plaintext: ");
+    fgets(plaintext,
+          sizeof(plaintext),
+          stdin);
+
+    plaintext[strcspn(plaintext, "\n")] = '\0';
+
+    printf("Enter multiplication key a: ");
+    scanf("%d", &a);
+
+    printf("Enter additive key b: ");
+    scanf("%d", &b);
+
+    /*
+     * Check whether a is relatively prime
+     * to 26.
+     */
+    if (gcd(a, 26) != 1)
+    {
+        printf("\nInvalid value of a!\n");
+        printf("gcd(%d,26) = %d\n",
+               a, gcd(a, 26));
+
+        printf("\nThe cipher is NOT one-to-one.\n");
+        printf("Choose a such that gcd(a,26) = 1.\n");
+
+        return 1;
+    }
+
+    b = b % 26;
+
+    /* Encryption */
+    encrypt(plaintext,
+            ciphertext,
+            a,
+            b);
+
+    printf("\nCiphertext: %s\n",
+           ciphertext);
+
+    /* Decryption */
+    decrypt(ciphertext,
+            decrypted,
+            a,
+            b);
+
+    printf("Decrypted : %s\n",
+           decrypted);
+
+    printf("\nMultiplicative inverse of a = %d\n",
+           modInverse(a));
+
+    return 0;
+}
