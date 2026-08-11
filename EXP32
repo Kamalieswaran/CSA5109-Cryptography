@@ -1,0 +1,193 @@
+#include <stdio.h>
+#include <stdint.h>
+
+/* Simple hash function for demonstration */
+unsigned long simpleHash(const char *message)
+{
+    unsigned long hash = 0;
+    int i;
+
+    for (i = 0; message[i] != '\0'; i++)
+        hash = (hash * 31 + message[i]) % 100000;
+
+    return hash;
+}
+
+/* Modular exponentiation */
+long long modPow(long long base, long long exp, long long mod)
+{
+    long long result = 1;
+
+    base %= mod;
+
+    while (exp > 0)
+    {
+        if (exp % 2 == 1)
+            result = (result * base) % mod;
+
+        base = (base * base) % mod;
+        exp /= 2;
+    }
+
+    return result;
+}
+
+/* Extended Euclidean Algorithm */
+long long extendedGCD(long long a, long long b,
+                      long long *x, long long *y)
+{
+    long long x1, y1;
+    long long gcd;
+
+    if (b == 0)
+    {
+        *x = 1;
+        *y = 0;
+        return a;
+    }
+
+    gcd = extendedGCD(b, a % b, &x1, &y1);
+
+    *x = y1;
+    *y = x1 - (a / b) * y1;
+
+    return gcd;
+}
+
+/* Modular inverse */
+long long modInverse(long long a, long long m)
+{
+    long long x, y;
+    long long gcd;
+
+    gcd = extendedGCD(a, m, &x, &y);
+
+    if (gcd != 1)
+        return -1;
+
+    x %= m;
+
+    if (x < 0)
+        x += m;
+
+    return x;
+}
+
+/*
+ * Simplified DSA-style signature.
+ *
+ * Real DSA uses carefully selected large
+ * parameters and cryptographically secure
+ * random k.
+ */
+void DSA_Sign(const char *message,
+              long long x,
+              long long p,
+              long long q,
+              long long g,
+              long long k,
+              long long *r,
+              long long *s)
+{
+    long long h;
+    long long kInverse;
+
+    h = simpleHash(message) % q;
+
+    /* r = (g^k mod p) mod q */
+    *r = modPow(g, k, p) % q;
+
+    /* k^-1 mod q */
+    kInverse = modInverse(k, q);
+
+    /*
+     * s = k^-1 (H(M) + x*r) mod q
+     */
+    *s = (kInverse * (h + x * (*r))) % q;
+}
+
+/*
+ * Simplified deterministic RSA signature.
+ *
+ * Real RSA signatures should use a secure
+ * padding scheme such as RSA-PSS.
+ */
+long long RSA_Sign(const char *message,
+                   long long d,
+                   long long n)
+{
+    long long h;
+
+    h = simpleHash(message);
+
+    return modPow(h, d, n);
+}
+
+int main()
+{
+    const char message[] = "HELLO";
+
+    /* Simplified DSA parameters */
+    long long p = 23;
+    long long q = 11;
+    long long g = 2;
+
+    /* Private signing key */
+    long long x = 3;
+
+    long long r1, s1;
+    long long r2, s2;
+
+    /* Different k values */
+    long long k1 = 5;
+    long long k2 = 7;
+
+    /* Simplified RSA parameters */
+    long long rsaN = 3233;
+    long long rsaD = 2753;
+
+    long long rsaSig1, rsaSig2;
+
+    printf("DSA vs RSA SIGNATURE DEMONSTRATION\n");
+    printf("===================================\n");
+
+    printf("\nMessage: %s\n", message);
+
+    /*
+     * DSA: same message, different k values
+     */
+    DSA_Sign(message, x, p, q, g, k1, &r1, &s1);
+
+    DSA_Sign(message, x, p, q, g, k2, &r2, &s2);
+
+    printf("\nDSA Signatures:\n");
+
+    printf("Using k = %lld -> (r, s) = (%lld, %lld)\n",
+           k1, r1, s1);
+
+    printf("Using k = %lld -> (r, s) = (%lld, %lld)\n",
+           k2, r2, s2);
+
+    if (r1 != r2 || s1 != s2)
+        printf("DSA: Signatures are DIFFERENT.\n");
+    else
+        printf("DSA: Signatures are SAME.\n");
+
+    /*
+     * RSA: same message and same private key
+     */
+    rsaSig1 = RSA_Sign(message, rsaD, rsaN);
+    rsaSig2 = RSA_Sign(message, rsaD, rsaN);
+
+    printf("\nRSA Signatures:\n");
+
+    printf("First signature  = %lld\n", rsaSig1);
+    printf("Second signature = %lld\n", rsaSig2);
+
+    if (rsaSig1 == rsaSig2)
+        printf("RSA: Signatures are SAME.\n");
+    else
+        printf("RSA: Signatures are DIFFERENT.\n");
+
+    return 0;
+}
