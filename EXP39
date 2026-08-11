@@ -1,0 +1,235 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+
+#define MAX_TEXT 10000
+#define TOP_N 10
+#define ALPHABET 26
+
+/*
+ * Approximate English letter frequencies.
+ *
+ * A B C D E F G H I J K L M
+ * N O P Q R S T U V W X Y Z
+ */
+double englishFreq[26] = {
+    8.17, 1.49, 2.78, 4.25, 12.70, 2.23,
+    2.02, 6.09, 6.97, 0.15, 0.77, 4.03,
+    2.41, 6.75, 7.51, 1.93, 0.10, 5.99,
+    6.33, 9.06, 2.76, 0.98, 2.36, 0.15,
+    1.97, 0.07
+};
+
+/*
+ * Structure for storing possible plaintext.
+ */
+typedef struct
+{
+    int key;
+    double score;
+    char plaintext[MAX_TEXT];
+
+} Candidate;
+
+/*
+ * Decrypt additive cipher.
+ *
+ * C = (P + k) mod 26
+ *
+ * Therefore:
+ *
+ * P = (C - k + 26) mod 26
+ */
+void decrypt(char ciphertext[],
+             char plaintext[],
+             int key)
+{
+    int i;
+
+    for (i = 0; ciphertext[i] != '\0'; i++)
+    {
+        if (isalpha((unsigned char)ciphertext[i]))
+        {
+            int c =
+                toupper((unsigned char)ciphertext[i])
+                - 'A';
+
+            int p =
+                (c - key + 26) % 26;
+
+            plaintext[i] = 'A' + p;
+        }
+        else
+        {
+            plaintext[i] = ciphertext[i];
+        }
+    }
+
+    plaintext[i] = '\0';
+}
+
+/*
+ * Calculate English frequency score.
+ *
+ * A smaller chi-square value means the
+ * letter distribution is closer to English.
+ */
+double frequencyScore(char text[])
+{
+    int count[26] = {0};
+    int total = 0;
+    int i;
+
+    double chiSquare = 0.0;
+
+    for (i = 0; text[i] != '\0'; i++)
+    {
+        if (isalpha((unsigned char)text[i]))
+        {
+            int x =
+                toupper((unsigned char)text[i])
+                - 'A';
+
+            count[x]++;
+            total++;
+        }
+    }
+
+    if (total == 0)
+        return 1000000000.0;
+
+    /*
+     * Chi-square test.
+     */
+    for (i = 0; i < 26; i++)
+    {
+        double expected =
+            total * englishFreq[i] / 100.0;
+
+        if (expected > 0)
+        {
+            double difference =
+                count[i] - expected;
+
+            chiSquare +=
+                (difference * difference)
+                / expected;
+        }
+    }
+
+    return chiSquare;
+}
+
+/*
+ * Sort candidates by increasing score.
+ * Lower chi-square = more likely English.
+ */
+void sortCandidates(Candidate candidates[])
+{
+    int i, j;
+
+    for (i = 0; i < ALPHABET - 1; i++)
+    {
+        for (j = i + 1; j < ALPHABET; j++)
+        {
+            if (candidates[j].score <
+                candidates[i].score)
+            {
+                Candidate temp;
+
+                temp = candidates[i];
+                candidates[i] = candidates[j];
+                candidates[j] = temp;
+            }
+        }
+    }
+}
+
+int main()
+{
+    char ciphertext[MAX_TEXT];
+
+    Candidate candidates[ALPHABET];
+
+    char plaintext[MAX_TEXT];
+
+    int i;
+    int topN;
+
+    printf("AUTOMATIC ADDITIVE CIPHER "
+           "FREQUENCY ATTACK\n");
+
+    printf("========================================\n");
+
+    printf("\nEnter ciphertext:\n");
+
+    fgets(ciphertext,
+          sizeof(ciphertext),
+          stdin);
+
+    ciphertext[strcspn(ciphertext, "\n")] =
+        '\0';
+
+    /*
+     * Ask the user how many results
+     * should be displayed.
+     */
+    printf("\nHow many possible plaintexts "
+           "do you want? (1-26): ");
+
+    scanf("%d", &topN);
+
+    if (topN < 1)
+        topN = 1;
+
+    if (topN > 26)
+        topN = 26;
+
+    /*
+     * Try all 26 possible keys.
+     */
+    for (i = 0; i < 26; i++)
+    {
+        candidates[i].key = i;
+
+        decrypt(ciphertext,
+                plaintext,
+                i);
+
+        strcpy(candidates[i].plaintext,
+               plaintext);
+
+        candidates[i].score =
+            frequencyScore(plaintext);
+    }
+
+    /*
+     * Sort possible plaintexts by
+     * English-likelihood score.
+     */
+    sortCandidates(candidates);
+
+    /*
+     * Display requested number of results.
+     */
+    printf("\nTOP %d POSSIBLE PLAINTEXTS\n",
+           topN);
+
+    printf("============================\n");
+
+    for (i = 0; i < topN; i++)
+    {
+        printf("\n%d. Key = %d",
+               i + 1,
+               candidates[i].key);
+
+        printf("\n   Score = %.2f",
+               candidates[i].score);
+
+        printf("\n   Plaintext: %s\n",
+               candidates[i].plaintext);
+    }
+
+    return 0;
+}
