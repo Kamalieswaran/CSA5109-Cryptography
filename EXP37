@@ -1,0 +1,357 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <ctype.h>
+
+#define ALPHABET 26
+#define MAX_TEXT 10000
+#define TOP_N 10
+#define ITERATIONS 20000
+
+/*
+ * Approximate English letter frequencies.
+ * Order: A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+ */
+double englishFreq[26] = {
+    8.17, 1.49, 2.78, 4.25, 12.70, 2.23,
+    2.02, 6.09, 6.97, 0.15, 0.77, 4.03,
+    2.41, 6.75, 7.51, 1.93, 0.10, 5.99,
+    6.33, 9.06, 2.76, 0.98, 2.36, 0.15,
+    1.97, 0.07
+};
+
+/*
+ * Common English patterns.
+ * These provide additional information beyond
+ * individual letter frequencies.
+ */
+const char *commonWords[] = {
+    "THE",
+    "AND",
+    "THAT",
+    "THIS",
+    "WITH",
+    "FROM",
+    "HAVE",
+    "WILL",
+    "YOUR",
+    "FOR",
+    "ARE",
+    "NOT",
+    "BUT",
+    "YOU",
+    "ALL",
+    "CAN",
+    "ONE",
+    "WAS",
+    "TO",
+    "OF",
+    "IN",
+    "IS"
+};
+
+#define COMMON_COUNT 22
+
+/* Structure for storing candidate plaintexts */
+typedef struct
+{
+    char text[MAX_TEXT];
+    double score;
+} Candidate;
+
+/*
+ * Calculate score based on English letter frequencies.
+ */
+double frequencyScore(char text[])
+{
+    int count[26] = {0};
+    int total = 0;
+    int i;
+    double score = 0.0;
+
+    for (i = 0; text[i] != '\0'; i++)
+    {
+        if (isalpha((unsigned char)text[i]))
+        {
+            int x = toupper((unsigned char)text[i]) - 'A';
+
+            count[x]++;
+            total++;
+        }
+    }
+
+    if (total == 0)
+        return -1000000;
+
+    /*
+     * Compare observed frequency with expected
+     * English frequency.
+     */
+    for (i = 0; i < 26; i++)
+    {
+        double observed =
+            (100.0 * count[i]) / total;
+
+        score -=
+            (observed - englishFreq[i]) *
+            (observed - englishFreq[i]);
+    }
+
+    return score;
+}
+
+/*
+ * Give additional score to common English words.
+ */
+double wordScore(char text[])
+{
+    double score = 0;
+    int i;
+
+    for (i = 0; i < COMMON_COUNT; i++)
+    {
+        char *ptr = text;
+
+        while ((ptr = strstr(ptr,
+                             commonWords[i])) != NULL)
+        {
+            score += 5.0;
+            ptr++;
+        }
+    }
+
+    return score;
+}
+
+/*
+ * Total English score.
+ */
+double scoreText(char text[])
+{
+    return frequencyScore(text) +
+           wordScore(text);
+}
+
+/*
+ * Decrypt ciphertext using a substitution key.
+ *
+ * key[ciphertext letter] = plaintext letter
+ */
+void decrypt(char cipher[],
+             char plain[],
+             int key[])
+{
+    int i;
+
+    for (i = 0; cipher[i] != '\0'; i++)
+    {
+        if (isalpha((unsigned char)cipher[i]))
+        {
+            int c =
+                toupper((unsigned char)cipher[i])
+                - 'A';
+
+            plain[i] = 'A' + key[c];
+        }
+        else
+        {
+            plain[i] = cipher[i];
+        }
+    }
+
+    plain[i] = '\0';
+}
+
+/*
+ * Create a random substitution key.
+ */
+void randomKey(int key[])
+{
+    int i;
+
+    for (i = 0; i < 26; i++)
+        key[i] = i;
+
+    /*
+     * Fisher-Yates shuffle
+     */
+    for (i = 25; i > 0; i--)
+    {
+        int j = rand() % (i + 1);
+
+        int temp = key[i];
+        key[i] = key[j];
+        key[j] = temp;
+    }
+}
+
+/*
+ * Improve the key by exchanging two
+ * plaintext letters.
+ */
+void hillClimb(char cipher[],
+               int key[],
+               double *bestScore)
+{
+    char plaintext[MAX_TEXT];
+    int i;
+
+    decrypt(cipher, plaintext, key);
+
+    *bestScore = scoreText(plaintext);
+
+    for (i = 0; i < ITERATIONS; i++)
+    {
+        int a = rand() % 26;
+        int b = rand() % 26;
+
+        double newScore;
+
+        int temp = key[a];
+        key[a] = key[b];
+        key[b] = temp;
+
+        decrypt(cipher, plaintext, key);
+
+        newScore = scoreText(plaintext);
+
+        /*
+         * Keep the change if it improves
+         * the plaintext score.
+         */
+        if (newScore >= *bestScore)
+        {
+            *bestScore = newScore;
+        }
+        else
+        {
+            /* Undo swap */
+            temp = key[a];
+            key[a] = key[b];
+            key[b] = temp;
+        }
+    }
+}
+
+/*
+ * Insert a candidate into the top-N list.
+ */
+void addCandidate(Candidate candidates[],
+                  char text[],
+                  double score)
+{
+    int i;
+    int position = TOP_N - 1;
+
+    /*
+     * Find where the new candidate belongs.
+     */
+    for (i = 0; i < TOP_N; i++)
+    {
+        if (score > candidates[i].score)
+        {
+            position = i;
+            break;
+        }
+    }
+
+    if (position >= TOP_N)
+        return;
+
+    /*
+     * Shift lower candidates.
+     */
+    for (i = TOP_N - 1; i > position; i--)
+    {
+        candidates[i] = candidates[i - 1];
+    }
+
+    strcpy(candidates[position].text, text);
+    candidates[position].score = score;
+}
+
+int main()
+{
+    char ciphertext[MAX_TEXT];
+    char plaintext[MAX_TEXT];
+
+    Candidate candidates[TOP_N];
+
+    int key[26];
+    int attempts;
+    int i;
+
+    srand((unsigned int)time(NULL));
+
+    /*
+     * Initialize candidate list.
+     */
+    for (i = 0; i < TOP_N; i++)
+    {
+        candidates[i].score = -1000000000.0;
+        candidates[i].text[0] = '\0';
+    }
+
+    printf("AUTOMATIC MONOALPHABETIC SUBSTITUTION");
+    printf(" CIPHER ATTACK\n");
+    printf("========================================\n");
+
+    printf("\nEnter ciphertext:\n");
+
+    fgets(ciphertext,
+          sizeof(ciphertext),
+          stdin);
+
+    ciphertext[strcspn(ciphertext, "\n")] =
+        '\0';
+
+    /*
+     * Perform multiple random searches.
+     * Different starting keys can reach
+     * different solutions.
+     */
+    printf("\nAnalyzing ciphertext...\n");
+
+    for (attempts = 0;
+         attempts < 100;
+         attempts++)
+    {
+        double score;
+
+        randomKey(key);
+
+        hillClimb(ciphertext,
+                  key,
+                  &score);
+
+        decrypt(ciphertext,
+                plaintext,
+                key);
+
+        addCandidate(candidates,
+                     plaintext,
+                     score);
+    }
+
+    /*
+     * Display top 10 candidates.
+     */
+    printf("\nTOP 10 POSSIBLE PLAINTEXTS\n");
+    printf("===========================\n");
+
+    for (i = 0; i < TOP_N; i++)
+    {
+        if (candidates[i].text[0] != '\0')
+        {
+            printf("\n%d. Score = %.2f\n",
+                   i + 1,
+                   candidates[i].score);
+
+            printf("   %s\n",
+                   candidates[i].text);
+        }
+    }
+
+    return 0;
+}
