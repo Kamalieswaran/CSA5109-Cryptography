@@ -1,0 +1,135 @@
+#include <stdio.h>
+
+/* Greatest Common Divisor */
+int gcd(int a, int b)
+{
+    while (b != 0)
+    {
+        int temp = b;
+        b = a % b;
+        a = temp;
+    }
+
+    return a;
+}
+
+/* Extended Euclidean Algorithm */
+int extendedGCD(int a, int b, int *x, int *y)
+{
+    int x1, y1;
+    int g;
+
+    if (b == 0)
+    {
+        *x = 1;
+        *y = 0;
+        return a;
+    }
+
+    g = extendedGCD(b, a % b, &x1, &y1);
+
+    *x = y1;
+    *y = x1 - (a / b) * y1;
+
+    return g;
+}
+
+/* Find modular inverse */
+int modInverse(int e, int phi)
+{
+    int x, y;
+    int g;
+
+    g = extendedGCD(e, phi, &x, &y);
+
+    if (g != 1)
+        return -1;
+
+    x = x % phi;
+
+    if (x < 0)
+        x += phi;
+
+    return x;
+}
+
+int main()
+{
+    int n, e;
+    int blocks[10];
+    int count;
+    int i;
+    int factor = 0;
+    int p, q, phi, d;
+
+    printf("RSA FACTOR DETECTION\n");
+    printf("-----------------------------\n");
+
+    printf("Enter n: ");
+    scanf("%d", &n);
+
+    printf("Enter public key e: ");
+    scanf("%d", &e);
+
+    printf("Enter number of ciphertext blocks: ");
+    scanf("%d", &count);
+
+    printf("Enter ciphertext blocks:\n");
+
+    for (i = 0; i < count; i++)
+        scanf("%d", &blocks[i]);
+
+    /*
+     * If plaintext M shares a factor with n,
+     * then ciphertext C = M^e mod n
+     * also shares the same factor with n.
+     */
+    for (i = 0; i < count; i++)
+    {
+        int g = gcd(blocks[i], n);
+
+        printf("\nBlock C%d = %d", i + 1, blocks[i]);
+        printf("\nGCD(C%d, n) = %d\n", i + 1, g);
+
+        if (g > 1 && g < n)
+        {
+            factor = g;
+            break;
+        }
+    }
+
+    if (factor == 0)
+    {
+        printf("\nNo non-trivial factor found.\n");
+        printf("The ciphertext blocks did not reveal a factor of n.\n");
+        return 0;
+    }
+
+    /* Factor n */
+    p = factor;
+    q = n / p;
+
+    printf("\nFactor found!\n");
+    printf("p = %d\n", p);
+    printf("q = %d\n", q);
+
+    /* Calculate Euler's phi */
+    phi = (p - 1) * (q - 1);
+
+    printf("phi(n) = %d\n", phi);
+
+    /* Calculate private key */
+    d = modInverse(e, phi);
+
+    if (d == -1)
+    {
+        printf("Private key cannot be calculated.\n");
+        return 0;
+    }
+
+    printf("Private key d = %d\n", d);
+
+    printf("\nPrivate Key = (%d, %d)\n", d, n);
+
+    return 0;
+}
