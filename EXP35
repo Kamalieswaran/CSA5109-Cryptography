@@ -1,0 +1,124 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <ctype.h>
+
+/* Generate random key values from 0 to 25 */
+void generateKey(int key[], int length)
+{
+    int i;
+
+    for (i = 0; i < length; i++)
+        key[i] = rand() % 26;
+}
+
+/* Encrypt using one-time-pad Vigenere */
+void encrypt(char plaintext[], char ciphertext[],
+             int key[], int length)
+{
+    int i;
+
+    for (i = 0; i < length; i++)
+    {
+        if (isalpha(plaintext[i]))
+        {
+            int p = toupper(plaintext[i]) - 'A';
+
+            ciphertext[i] =
+                ((p + key[i]) % 26) + 'A';
+        }
+        else
+        {
+            ciphertext[i] = plaintext[i];
+        }
+    }
+
+    ciphertext[length] = '\0';
+}
+
+/* Decrypt */
+void decrypt(char ciphertext[], char plaintext[],
+             int key[], int length)
+{
+    int i;
+
+    for (i = 0; i < length; i++)
+    {
+        if (isalpha(ciphertext[i]))
+        {
+            int c = toupper(ciphertext[i]) - 'A';
+
+            plaintext[i] =
+                ((c - key[i] + 26) % 26) + 'A';
+        }
+        else
+        {
+            plaintext[i] = ciphertext[i];
+        }
+    }
+
+    plaintext[length] = '\0';
+}
+
+int main()
+{
+    char plaintext[100];
+    char ciphertext[100];
+    char decrypted[100];
+
+    int key[100];
+    int length;
+    int i;
+
+    srand((unsigned int)time(NULL));
+
+    printf("ONE-TIME PAD VIGENERE CIPHER\n");
+    printf("============================\n");
+
+    printf("Enter plaintext: ");
+    fgets(plaintext, sizeof(plaintext), stdin);
+
+    /* Remove newline */
+    plaintext[strcspn(plaintext, "\n")] = '\0';
+
+    length = strlen(plaintext);
+
+    /*
+     * Generate one random key value
+     * for every character.
+     */
+    generateKey(key, length);
+
+    printf("\nRandom Key:\n");
+
+    for (i = 0; i < length; i++)
+    {
+        if (isalpha(plaintext[i]))
+            printf("%d ", key[i]);
+        else
+            printf("- ");
+    }
+
+    printf("\n");
+
+    /* Encryption */
+    encrypt(plaintext,
+            ciphertext,
+            key,
+            length);
+
+    printf("\nCiphertext: %s\n",
+           ciphertext);
+
+    /* Decryption */
+    decrypt(ciphertext,
+            decrypted,
+            key,
+            length);
+
+    printf("Decrypted : %s\n",
+           decrypted);
+
+    return 0;
+}
