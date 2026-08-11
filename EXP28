@@ -1,0 +1,70 @@
+#include <stdio.h>
+
+/* Fast modular exponentiation */
+long long modPow(long long base, long long exp, long long mod)
+{
+    long long result = 1;
+
+    base = base % mod;
+
+    while (exp > 0)
+    {
+        if (exp % 2 == 1)
+            result = (result * base) % mod;
+
+        base = (base * base) % mod;
+        exp = exp / 2;
+    }
+
+    return result;
+}
+
+int main()
+{
+    long long q, a;
+    long long x, y;
+    long long A, B;
+    long long keyAlice, keyBob;
+
+    printf("DIFFIE-HELLMAN KEY EXCHANGE\n");
+    printf("-----------------------------\n");
+
+    /* Public parameters */
+    printf("Enter public prime q: ");
+    scanf("%lld", &q);
+
+    printf("Enter public base a: ");
+    scanf("%lld", &a);
+
+    /* Private secrets */
+    printf("Enter Alice's secret x: ");
+    scanf("%lld", &x);
+
+    printf("Enter Bob's secret y: ");
+    scanf("%lld", &y);
+
+    /* Alice sends A = a^x mod q */
+    A = modPow(a, x, q);
+
+    /* Bob sends B = a^y mod q */
+    B = modPow(a, y, q);
+
+    printf("\nAlice sends: %lld\n", A);
+    printf("Bob sends  : %lld\n", B);
+
+    /* Alice computes B^x mod q */
+    keyAlice = modPow(B, x, q);
+
+    /* Bob computes A^y mod q */
+    keyBob = modPow(A, y, q);
+
+    printf("\nAlice's shared key = %lld\n", keyAlice);
+    printf("Bob's shared key   = %lld\n", keyBob);
+
+    if (keyAlice == keyBob)
+        printf("\nKey exchange successful!\n");
+    else
+        printf("\nKey exchange failed!\n");
+
+    return 0;
+}
