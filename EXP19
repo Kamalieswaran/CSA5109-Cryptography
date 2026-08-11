@@ -1,0 +1,238 @@
+#include <stdio.h>
+#include <stdint.h>
+
+#define BLOCK_SIZE 8
+
+/*
+ * Simple DES-style demonstration functions.
+ * In a real application, use a tested cryptographic
+ * library instead of implementing DES/3DES yourself.
+ */
+
+/* Initial Permutation */
+int IP[64] = {
+    58,50,42,34,26,18,10,2,
+    60,52,44,36,28,20,12,4,
+    62,54,46,38,30,22,14,6,
+    64,56,48,40,32,24,16,8,
+    57,49,41,33,25,17,9,1,
+    59,51,43,35,27,19,11,3,
+    61,53,45,37,29,21,13,5,
+    63,55,47,39,31,23,15,7
+};
+
+/* Final Permutation */
+int FP[64] = {
+    40,8,48,16,56,24,64,32,
+    39,7,47,15,55,23,63,31,
+    38,6,46,14,54,22,62,30,
+    37,5,45,13,53,21,61,29,
+    36,4,44,12,52,20,60,28,
+    35,3,43,11,51,19,59,27,
+    34,2,42,10,50,18,58,26,
+    33,1,41,9,49,17,57,25
+};
+
+/* Generic permutation */
+uint64_t permute(uint64_t input,
+                 int table[],
+                 int n,
+                 int inputBits) {
+
+    uint64_t output = 0;
+    int i;
+
+    for (i = 0; i < n; i++) {
+        output <<= 1;
+        output |=
+            (input >> (inputBits - table[i])) & 1;
+    }
+
+    return output;
+}
+
+/*
+ * Demonstration DES-like block transformation.
+ *
+ * For an academic CBC demonstration, this function
+ * represents the block encryption operation.
+ */
+uint64_t des_encrypt(uint64_t block, uint64_t key) {
+
+    /*
+     * In a complete DES implementation, this function
+     * contains:
+     *   1. Initial permutation
+     *   2. 16 Feistel rounds
+     *   3. S-boxes
+     *   4. Final permutation
+     *
+     * Replace this function with a complete DES
+     * implementation or a cryptographic library
+     * implementation for real use.
+     */
+
+    return block ^ key;
+}
+
+/* DES decryption */
+uint64_t des_decrypt(uint64_t block, uint64_t key) {
+    return block ^ key;
+}
+
+/*
+ * 3DES Encryption:
+ *
+ * E(K3, D(K2, E(K1, data)))
+ */
+uint64_t triple_des_encrypt(uint64_t data,
+                            uint64_t K1,
+                            uint64_t K2,
+                            uint64_t K3) {
+
+    data = des_encrypt(data, K1);
+
+    data = des_decrypt(data, K2);
+
+    data = des_encrypt(data, K3);
+
+    return data;
+}
+
+/*
+ * Convert 8 bytes to 64-bit integer
+ */
+uint64_t bytesTo64(unsigned char block[]) {
+
+    uint64_t value = 0;
+    int i;
+
+    for (i = 0; i < 8; i++) {
+        value = (value << 8) | block[i];
+    }
+
+    return value;
+}
+
+/*
+ * CBC Encryption
+ */
+void cbc_encrypt(unsigned char plaintext[],
+                 unsigned char ciphertext[],
+                 int length,
+                 uint64_t K1,
+                 uint64_t K2,
+                 uint64_t K3,
+                 uint64_t IV) {
+
+    int i;
+    uint64_t block;
+    uint64_t encrypted;
+
+    uint64_t previous = IV;
+
+    for (i = 0; i < length; i += BLOCK_SIZE) {
+
+        /*
+         * Convert plaintext block to 64 bits
+         */
+        block = bytesTo64(&plaintext[i]);
+
+        /*
+         * CBC:
+         *
+         * Plaintext XOR previous ciphertext
+         */
+        block = block ^ previous;
+
+        /*
+         * 3DES encryption
+         */
+        encrypted =
+            triple_des_encrypt(
+                block,
+                K1,
+                K2,
+                K3
+            );
+
+        /*
+         * Store ciphertext
+         */
+        for (int j = 7; j >= 0; j--) {
+            ciphertext[i + (7 - j)] =
+                (encrypted >> (j * 8)) & 0xFF;
+        }
+
+        /*
+         * Next block uses current ciphertext
+         */
+        previous = encrypted;
+    }
+}
+
+int main() {
+
+    /*
+     * Example plaintext.
+     * Length must be a multiple of 8 for this
+     * simple demonstration.
+     */
+    unsigned char plaintext[16] =
+        "HELLO123WORLD!!";
+
+    unsigned char ciphertext[16];
+
+    /*
+     * Three independent 64-bit keys
+     */
+    uint64_t K1 =
+        0x133457799BBCDFF1ULL;
+
+    uint64_t K2 =
+        0x0E329232EA6D0D73ULL;
+
+    uint64_t K3 =
+        0xAABB09182736CCDDULL;
+
+    /*
+     * Initialization Vector
+     */
+    uint64_t IV =
+        0x1234567890ABCDEFULL;
+
+    int i;
+
+    printf("3DES CBC ENCRYPTION\n");
+    printf("====================\n");
+
+    printf("\nPlaintext: %s\n",
+           plaintext);
+
+    printf("IV       : %016llX\n",
+           IV);
+
+    /*
+     * CBC encryption
+     */
+    cbc_encrypt(
+        plaintext,
+        ciphertext,
+        16,
+        K1,
+        K2,
+        K3,
+        IV
+    );
+
+    printf("\nCiphertext:\n");
+
+    for (i = 0; i < 16; i++) {
+        printf("%02X",
+               ciphertext[i]);
+    }
+
+    printf("\n");
+
+    return 0;
+}
