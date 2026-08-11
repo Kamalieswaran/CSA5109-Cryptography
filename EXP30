@@ -1,0 +1,105 @@
+#include <stdio.h>
+
+/*
+ * Simple XOR-based block cipher used only
+ * to demonstrate the CBC-MAC attack.
+ *
+ * Real CBC-MAC must use a secure block cipher
+ * such as AES.
+ */
+
+unsigned char encryptBlock(unsigned char block,
+                            unsigned char key)
+{
+    return block ^ key;
+}
+
+/* CBC-MAC for a one-block message */
+unsigned char CBC_MAC_1Block(unsigned char X,
+                             unsigned char key)
+{
+    unsigned char IV = 0;
+    unsigned char T;
+
+    T = encryptBlock(X ^ IV, key);
+
+    return T;
+}
+
+/* CBC-MAC for a two-block message */
+unsigned char CBC_MAC_2Block(unsigned char X,
+                             unsigned char secondBlock,
+                             unsigned char key)
+{
+    unsigned char IV = 0;
+    unsigned char C1, C2;
+
+    /* First block */
+    C1 = encryptBlock(X ^ IV, key);
+
+    /* Second block */
+    C2 = encryptBlock(secondBlock ^ C1, key);
+
+    return C2;
+}
+
+int main()
+{
+    unsigned char X;
+    unsigned char key;
+    unsigned char T;
+    unsigned char forgedBlock;
+    unsigned char forgedMAC;
+
+    printf("CBC-MAC FORGERY DEMONSTRATION\n");
+    printf("-----------------------------\n");
+
+    printf("Enter message block X (0-255): ");
+    scanf("%hhu", &X);
+
+    printf("Enter secret key (0-255): ");
+    scanf("%hhu", &key);
+
+    /*
+     * Step 1:
+     * Obtain MAC of X.
+     */
+    T = CBC_MAC_1Block(X, key);
+
+    printf("\nOne-block message:\n");
+    printf("X = %u\n", X);
+    printf("T = MAC(K,X) = %u\n", T);
+
+    /*
+     * Step 2:
+     * Construct X || (X XOR T).
+     */
+    forgedBlock = X ^ T;
+
+    printf("\nForged two-block message:\n");
+    printf("X             = %u\n", X);
+    printf("X XOR T       = %u\n", forgedBlock);
+
+    /*
+     * Step 3:
+     * Calculate CBC-MAC of forged message.
+     */
+    forgedMAC = CBC_MAC_2Block(X, forgedBlock, key);
+
+    printf("\nCBC-MAC of forged message = %u\n",
+           forgedMAC);
+
+    printf("Original MAC T            = %u\n", T);
+
+    if (forgedMAC == T)
+    {
+        printf("\nForgery successful!\n");
+        printf("MAC(K, X || (X XOR T)) = T\n");
+    }
+    else
+    {
+        printf("\nForgery failed.\n");
+    }
+
+    return 0;
+}
