@@ -1,0 +1,48 @@
+```c
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+int main() {
+    char plaintext[] =
+        "meet me at the usual place at ten rather than eight oclock";
+    char text[100];
+    char ciphertext[100];
+    int key[2][2] = {{9, 4}, {5, 7}};
+    int i, j, k = 0;
+    int p1, p2, c1, c2;
+
+    /* Remove spaces */
+    for (i = 0; plaintext[i] != '\0'; i++) {
+        if (isalpha(plaintext[i])) {
+            text[k++] = tolower(plaintext[i]);
+        }
+    }
+    text[k] = '\0';
+
+    /* Add X if plaintext length is odd */
+    if (k % 2 != 0) {
+        text[k++] = 'x';
+        text[k] = '\0';
+    }
+
+    /* Hill Cipher Encryption */
+    for (i = 0, j = 0; i < k; i += 2) {
+        p1 = text[i] - 'a';
+        p2 = text[i + 1] - 'a';
+
+        c1 = (key[0][0] * p1 + key[0][1] * p2) % 26;
+        c2 = (key[1][0] * p1 + key[1][1] * p2) % 26;
+
+        ciphertext[j++] = c1 + 'a';
+        ciphertext[j++] = c2 + 'a';
+    }
+
+    ciphertext[j] = '\0';
+
+    printf("Plaintext  : %s\n", text);
+    printf("Ciphertext : %s\n", ciphertext);
+
+    return 0;
+}
+```
