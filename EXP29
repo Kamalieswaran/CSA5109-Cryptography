@@ -1,0 +1,149 @@
+#include <stdio.h>
+
+#define SIZE 5
+
+/*
+ * State contains 25 lanes.
+ * 1 = lane contains at least one nonzero bit
+ * 0 = lane is completely zero
+ */
+
+/* Display the state */
+void displayState(int state[SIZE][SIZE])
+{
+    int x, y;
+
+    for (y = 0; y < SIZE; y++)
+    {
+        for (x = 0; x < SIZE; x++)
+            printf("%d ", state[x][y]);
+
+        printf("\n");
+    }
+}
+
+/* Theta operation */
+void theta(int state[SIZE][SIZE])
+{
+    int C[SIZE];
+    int D[SIZE];
+    int x, y;
+
+    /* Calculate column parity */
+    for (x = 0; x < SIZE; x++)
+    {
+        C[x] = 0;
+
+        for (y = 0; y < SIZE; y++)
+            C[x] ^= state[x][y];
+    }
+
+    /* Calculate D[x] */
+    for (x = 0; x < SIZE; x++)
+    {
+        D[x] = C[(x + 4) % SIZE] ^
+               C[(x + 1) % SIZE];
+    }
+
+    /* Apply Theta */
+    for (x = 0; x < SIZE; x++)
+    {
+        for (y = 0; y < SIZE; y++)
+            state[x][y] ^= D[x];
+    }
+}
+
+/* Count nonzero capacity lanes */
+int countCapacityLanes(int state[SIZE][SIZE])
+{
+    int count = 0;
+    int x, y;
+
+    /*
+     * First 16 lanes are considered rate lanes:
+     * y = 0,1,2 -> 15 lanes
+     * plus (0,3) -> 1 lane
+     *
+     * Remaining 9 lanes are capacity lanes.
+     */
+
+    for (y = 0; y < SIZE; y++)
+    {
+        for (x = 0; x < SIZE; x++)
+        {
+            /*
+             * Skip the first 16 rate lanes.
+             */
+            if (y < 3)
+                continue;
+
+            if (y == 3 && x == 0)
+                continue;
+
+            if (state[x][y] != 0)
+                count++;
+        }
+    }
+
+    return count;
+}
+
+int main()
+{
+    int state[SIZE][SIZE] = {0};
+    int x, y;
+    int round = 0;
+    int capacity;
+
+    /*
+     * 1024-bit block = 16 lanes.
+     *
+     * Assume every rate lane in P0
+     * contains at least one nonzero bit.
+     */
+
+    for (y = 0; y < 3; y++)
+    {
+        for (x = 0; x < 5; x++)
+            state[x][y] = 1;
+    }
+
+    state[0][3] = 1;
+
+    printf("SHA-3 1024-BIT BLOCK SIZE\n");
+    printf("-------------------------\n");
+
+    printf("\nInitial State:\n");
+    displayState(state);
+
+    printf("\nInitial rate lanes     : 16");
+    printf("\nInitial capacity lanes : 9");
+
+    capacity = countCapacityLanes(state);
+
+    printf("\nNonzero capacity lanes : %d\n", capacity);
+
+    /* Apply Theta */
+    theta(state);
+    round++;
+
+    printf("\nAfter Theta operation:\n");
+    displayState(state);
+
+    capacity = countCapacityLanes(state);
+
+    printf("\nRound number            : %d", round);
+    printf("\nNonzero capacity lanes  : %d\n", capacity);
+
+    if (capacity == 9)
+    {
+        printf("\nAll capacity lanes are nonzero.\n");
+        printf("Time required = 1 round.\n");
+    }
+    else
+    {
+        printf("\nSome capacity lanes are still zero.\n");
+    }
+
+    return 0;
+}
